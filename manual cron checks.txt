@@ -1,0 +1,4 @@
+crontab -l
+sudo ls /var/spool/cron/crontabs
+systemctl list-timers --all
+ls -l /etc/rc.local

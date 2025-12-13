@@ -22,7 +22,7 @@ CRITICAL_FILES=(
 
 AUTHORIZED_USERS=("c" "cguy")
 AUTHORIZED_ADMINS=("")
-hello_its_me=("benjamin")
+hello_its_me="benjamin"
 
 AUTHORIZED_PASS="Cyb3rPatr!0t$"
 
@@ -278,6 +278,7 @@ net.ipv4.tcp_timestamps = 0
 
 # Harden BPF just in case
 kernel.unprivileged_bpf_disabled = 1
+net.core.bpf_jit_harden=2
 
 #the stuff i found from aperture practice image
 net.ipv4.tcp_rfc1337 = 1
@@ -324,5 +325,8 @@ for DIR in "${CRITICAL_DIRS[@]}"; do
         echo "" 
     fi
 done
+
+#disable guest login
+sudo sed -i 's/^#\?allow-guest.*/allow-guest=false/' /etc/lightdm/lightdm.conf 2>/dev/null
 
 echo "[+] Scan complete."
