@@ -1,0 +1,324 @@
+===========================
+LINUX HARDENING CHECKLIST
+===========================
+
+# NOTE:
+# - Run updates and upgrades LAST (they take the longest and use resources)
+# - Complete forensics FIRST (before changing configurations)
+# - Includes both CLI and GUI equivalents
+
+
+
+
+===the an section :3 (these are the things i found on the answer key that the checklist didn't have)
+sudo pkill -f [backdoor process]
+^^^^ not sure if needed since just deleting the backdoor file gave me points
+squid is a bad service
+
+
+────────────────────────────
+STEP 1 — FORENSICS / INITIAL INVESTIGATION
+────────────────────────────
+
+# Identify distribution and version
+lsb_release -a
+cat /etc/os-release
+uname -a
+# GUI: Menu → System Info OR System Monitor → System Tab
+
+# Check system hostname
+hostnamectl
+# GUI: Menu → System Settings → About
+
+# Find prohibited or suspicious media files
+sudo find /home/ -type f \( -iname "*.mp3" -o -iname "*.mp4" -o -iname "*.jpg" -o -iname "*.png" \)
+# GUI: File Manager → Search bar → *.mp3 / *.jpg → Delete if non-work-related
+
+# Find suspicious downloads or scripts
+sudo find /home/*/Downloads -type f
+# GUI: File Manager → Navigate to Downloads folders
+
+# Check hidden files and extended attributes
+sudo ls -la /home/*/
+sudo getfattr -d -m - /home/*/* 2>/dev/null
+# GUI: File Manager → View → Show Hidden Files
+
+# Check for unusual lines in sudoers
+sudo cat /etc/sudoers
+sudo ls /etc/sudoers.d/
+# GUI: Text Editor (open with admin privileges) → /etc/sudoers
+
+# Search for malicious scripts in system directories
+sudo find /etc /usr /tmp -type f -iname "*.sh"
+sudo grep -R "useradd" /etc /usr /tmp 2>/dev/null
+
+# List running services and background processes
+ps aux --sort=start_time
+sudo systemctl list-units --type=service --state=running | grep enabled
+# GUI: System Monitor → Processes / Services Tab
+# To remove: sudo systemctl disable --now <service_name>
+
+# Check open ports and network activity
+sudo ss -tulnp
+sudo apt install -y net-tools && sudo netstat -tulnp
+# GUI: Menu → Administration → Network Tools or use "gnome-nettool"
+
+# Check browser history (Firefox/Chromium) for malicious sites
+# GUI: Firefox → History → Show All History OR Chromium → History
+
+────────────────────────────
+STEP 2 — USER ACCOUNTS & PASSWORDS
+────────────────────────────
+
+# List all users and UIDs (normal users are usually 1000–6000)
+getent passwd {1000..6000}
+awk -F: '{print $1,$3}' /etc/passwd
+awk -F: '$3 > 999 && $3 < 65534 {print $1}' /etc/passwd
+# GUI: Menu → Administration → Users and Groups
+
+# Check for empty passwords
+awk -F: '$2 == "" {print $1}' /etc/shadow
+
+# Check for non-root UID 0 users (should only be 'root')
+awk -F: '$3 == 0 && $1 != "root" {print $1}' /etc/passwd
+
+# Check who is in the sudo group (admins)
+getent group sudo
+# GUI: Users and Groups → Select user → Check if “Administrator” is toggled
+
+# Remove unauthorized users
+sudo deluser <username> --remove-home
+# GUI: Users and Groups → Delete user
+
+# Add missing authorized users
+sudo adduser <username>
+# GUI: Users and Groups → Add new user
+
+# Check for users’ password MIN:MAX:WARN age in shadow
+sudo cat /etc/shadow
+# Look for encryption and rules. Example: :0:90:7::: at the end
+# Set a maximum password age for each user:
+sudo chage -M 90 <user>
+sudo getent shadow <user>
+
+# Adjust admin privileges
+sudo usermod -aG sudo <username>   # Add admin
+sudo gpasswd -d <username> sudo    # Remove admin
+# GUI: Users and Groups → Change Account Type
+
+# Change insecure or weak passwords
+sudo passwd <username>
+# GUI: Users and Groups → Change Password → Use a strong password
+
+# Set password policy (login.defs)
+sudo sed -i 's/PASS_MAX_DAYS.*$/PASS_MAX_DAYS 90/; s/PASS_MIN_DAYS.*$/PASS_MIN_DAYS 10/; s/PASS_WARN_AGE.*$/PASS_WARN_AGE 7/' /etc/login.defs
+# GUI: Open /etc/login.defs and adjust lines as above
+
+# Lock root account (disable root login)
+sudo passwd -l root
+# GUI: Users and Groups → Lock/Unlock root (if available)
+
+# Set correct home directory permissions
+for i in $(awk -F: '$3 > 999 && $3 < 65534 {print $1}' /etc/passwd); do
+    [ -d /home/${i} ] && chmod -R 750 /home/${i}
+done
+# GUI: File Manager → Right-click user home → Properties → Permissions
+
+────────────────────────────
+STEP 3 — FILES / SOFTWARE / MALWARE
+────────────────────────────
+
+# Find prohibited or suspicious media files
+sudo find /home/ -type f \( -iname "*.mp3" -o -iname "*.mp4" -o -iname "*.jpg" -o -iname "*.png" \)
+# GUI: File Manager → Search bar → *.mp3 / *.jpg → Delete if non-work-related
+
+# Check hidden files and extended attributes
+sudo ls -la /home/*/
+sudo getfattr -d -m - /home/*/* 2>/dev/null
+# GUI: File Manager → View → Show Hidden Files
+
+# Remove prohibited media or personal files
+sudo rm /home/*/Music/*.mp3
+sudo rm /home/*/Downloads/*.jpg
+# GUI: File Manager → Search → Delete non-work files
+
+# Remove hacking tools / unauthorized software
+sudo apt purge -y nmap wireshark netcat tcpdump zenmap nikto ophcrack john hydra apache2 nginx lighttpd
+# GUI: Software Manager → Search → Uninstall
+
+# Check for malicious or leftover scripts
+sudo find /home /etc /tmp -type f -iname "*.sh"
+sudo rm /home/*/Downloads/generator.sh
+sudo rm /etc/notMalware.sh
+
+# Check compressed files or archives that could hide malware
+sudo find /home -type f \( -iname "*.zip" -o -iname "*.tar.gz" -o -iname "*.tgz" -o -iname "*.deb" \)
+
+# Check for suspicious executables
+sudo find /usr/local/bin /usr/bin /bin -type f -perm /111 -exec ls -l {} \;
+
+# ClamAV — install, update definitions, run a scan
+sudo apt install -y clamav clamav-daemon
+sudo systemctl stop clamav-freshclam || true
+sudo freshclam || true
+sudo systemctl start clamav-freshclam || true
+sudo systemctl restart clamav-daemon || true
+sudo clamscan -r /home --bell -i | tee ~/clamav_scan_report.txt
+
+────────────────────────────
+STEP 4 — SYSTEM HARDENING
+────────────────────────────
+
+# Validate SSH configuration and restart
+sudo sshd -t && sudo systemctl restart ssh
+# GUI: Menu → Preferences → Remote Login (or SSH configuration tool) → Toggle Allow Remote Login
+
+# SSH hardening (recommended lines in /etc/ssh/sshd_config)
+#   PermitRootLogin no
+#   PasswordAuthentication yes   # or no if using keys only
+#   PermitEmptyPasswords no
+#   ChallengeResponseAuthentication no
+# Edit /etc/ssh/sshd_config with a text editor (admin), save, restart sshd
+# GUI: Text Editor → /etc/ssh/sshd_config → Edit → Save → Restart SSH
+
+# PAM / Password Policy Hardening
+# (DO NOT USE FOR MINT) Files: /etc/pam.d/common-auth, /etc/pam.d/common-password, optionally /etc/pam.d/common-session
+sudo apt install -y libpam-cracklib
+
+# 1) Password complexity (common-password)
+# Ensure the line is:
+password requisite pam_cracklib.so retry=3 minlen=8 difok=3 ucredit=-1 lcredit=-1 dcredit=-1 ocredit=-1
+
+# 2) For Mint #1: Enforce password history (common-password) — after pam_cracklib line
+password [success=1 default=ignore] pam_unix.so obscure yescrypt minlen=8 remember=5
+# This enforces a minimum password length and remembers up to 5 previous passwords
+
+# 3) Configure account lockout policy using faillock
+sudo touch /usr/share/pam-configs/faillock
+sudo nano /usr/share/pam-configs/faillock
+# First file:
+"Name: Lockout on failed logins
+Default: no
+Priority: 0
+Auth-Type: Primary
+Auth:
+[default=die] pam_faillock.so authfail"
+# Second file:
+sudo touch /usr/share/pam-configs/faillock_reset
+sudo nano /usr/share/pam-configs/faillock_reset
+"Name: Reset lockout on success
+Default: no
+Priority: 0
+Auth-Type: Additional
+Auth:
+required pam_faillock.so authsucc"
+sudo pam-auth-update
+# Third file:
+sudo touch /usr/share/pam-configs/faillock_notify
+sudo nano /usr/share/pam-configs/faillock_notify
+"Name: Notify on account lockout
+Default: no
+Priority: 1024
+Auth-Type: Primary
+Auth:
+requisite pam_faillock.so preauth"
+sudo pam-auth-update
+# Enable each of the three options in the menu: Notify, Reset, Lockout
+
+# 4) Remove null passwords
+# Remove the word "nullok" from common-auth — it allows accounts with empty passwords to log in
+
+# 5) Address space layout randomization
+sudo nano /etc/sysctl.conf
+# Change kernel.randomize_va_space=0 to kernel.randomize_va_space=2
+sudo sysctl --system  # Apply settings to reduce exploit effectiveness (e.g., buffer overflow attacks)
+
+# 6) IPv4 TCP SYN cookies in sysctl.conf
+# Change net.ipv4.tcp_syncookies=0 to net.ipv4.tcp_syncookies=1
+sudo sysctl --system  # Apply settings
+
+# After PAM changes, run:
+sudo pam-auth-update --package
+# GUI: Edit /etc/pam.d/common-auth and /etc/pam.d/common-password with admin Text Editor → Save
+
+# Configure /etc/login.defs for password aging
+sudo sed -i 's/^PASS_MAX_DAYS.*/PASS_MAX_DAYS   90/; s/^PASS_MIN_DAYS.*/PASS_MIN_DAYS   10/; s/^PASS_WARN_AGE.*/PASS_WARN_AGE   7/' /etc/login.defs
+# GUI: Open /etc/login.defs as admin → Edit → Save
+
+# UFW firewall
+sudo apt update && sudo apt install -y ufw gufw
+sudo ufw default reject incoming
+sudo ufw default allow outgoing
+sudo ufw enable
+sudo ufw status verbose
+# GUI: GUFW → Preferences → Set Incoming: Reject, Outgoing: Allow → Enable
+
+# Disable FTP and other unnecessary services
+sudo apt purge -y vsftpd telnetd telnet xinetd
+# GUI: Software Manager → Search → Uninstall
+
+# Enable auditing
+sudo apt install -y auditd audispd-plugins
+sudo systemctl enable auditd --now
+sudo auditctl -e 1
+
+# Another auditing tool (recommended)
+sudo apt install lynis
+sudo lynis audit system
+
+# Remove unnecessary network services
+sudo apt list --installed
+sudo systemctl list-unit-files --type=service | grep enabled
+# Example removal: sudo apt purge -y apache2 nginx lighttpd samba*
+
+# Boot-Up Manager (BUM)
+sudo apt install -y bum
+# GUI: Launch BUM → Disable unwanted startup services
+
+# Harden Firefox browser
+# GUI: Firefox → Preferences → Privacy & Security → Enhanced Tracking Protection (Strict)
+# Uncheck "Remember logins", disable form autofill, telemetry, and data collection
+# System-wide:
+echo 'pref("browser.startup.homepage","https://www.cyberpatriot.org"); pref("signon.rememberSignons",false); pref("privacy.trackingprotection.enabled",true); pref("toolkit.telemetry.enabled",false); pref("browser.safebrowsing.malware.enabled",true);' | sudo tee /etc/firefox/syspref.js
+
+# AppArmor and file integrity
+sudo systemctl enable apparmor --now
+sudo apt install -y aide
+sudo aideinit || true
+
+# File and permissions checks
+sudo chmod 644 /etc/passwd
+sudo chmod 600 /etc/shadow
+sudo chown root:root /etc/passwd /etc/shadow
+
+────────────────────────────
+STEP 5 — UPDATES (LAST STEP)
+────────────────────────────
+
+sudo apt update && sudo apt upgrade -y && sudo apt dist-upgrade -y
+# Configure automatic updates to check daily
+sudo apt install unattended-upgrades
+sudo dpkg-reconfigure --priority=low unattended-upgrades
+# Or manually edit:
+cat /etc/apt/apt.conf.d/10periodic
+# GUI: Update Manager → Preferences → Automatic Updates → Set "Check" daily
+# Apply all updates after completing all checks
+
+# Kernel hardening
+sudo nano /etc/sysctl.conf
+# Example:
+# net.ipv4.conf.all.rp_filter = 1
+# net.ipv4.tcp_syncookies = 1
+sudo sysctl -p
+
+────────────────────────────
+OPTIONAL ADVANCED HARDENING
+────────────────────────────
+
+# Log monitoring and alerting
+sudo apt install -y logwatch
+sudo logwatch --detail High --mailto admin@example.com --service all --range today
+
+# Daily security scan
+sudo clamscan -r / --bell -i | tee ~/daily_scan.txt
+sudo aide --check | tee ~/aide_check.txt
