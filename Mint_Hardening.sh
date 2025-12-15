@@ -216,6 +216,8 @@ echo "=== SYSTEM HARDENING COMPLETE ==="
 # 14) KERNEL HARDENING
 echo "=== Applying kernel hardening settings ==="
 
+sudo sed -i '/^# KERNEL HARDENING$/,/^######################################$/d' /etc/sysctl.conf
+
 sudo tee -a /etc/sysctl.conf > /dev/null << 'EOF'
 
 # KERNEL HARDENING
@@ -325,6 +327,14 @@ for DIR in "${CRITICAL_DIRS[@]}"; do
         echo "" 
     fi
 done
+
+#/etc/login.defs
+if grep -Eq '^[[:space:]]*#?[[:space:]]*ENCRYPT_METHOD' "/etc/login.defs"; then
+    sudo sed -i 's/^[[:space:]]*#\?[[:space:]]*ENCRYPT_METHOD.*/ENCRYPT_METHOD SHA512/' "/etc/login.defs"
+else
+    # Otherwise, add it to the end
+    echo "ENCRYPT_METHOD SHA512" | sudo tee -a "/etc/login.defs" > /dev/null
+fi
 
 #disable guest login
 sudo sed -i 's/^#\?allow-guest.*/allow-guest=false/' /etc/lightdm/lightdm.conf 2>/dev/null

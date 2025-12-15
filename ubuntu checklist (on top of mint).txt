@@ -1,0 +1,75 @@
+-Disable guest user
+ In /etc/lightdm/lightdm.conf add the line "allow-guest=false"
+ Restart with "sudo restart lightdm" (will log you out)
+
+-No groups/users have UID of 0
+
+-Use the command "ss -ln" to check for open ports that are not on the loopback
+ For open ports that need to be closed
+     Use "lsof -i :[port]" or "netstat -lntp" then copy the program listening on the port with "whereis [program]" then copy where the program is with "dpkg -S [location]" then remove the associated package with "apt-get purge [package]"
+     Verify the removal with "ss -ln"
+
+-Check the permissions of the files with "ls -al"
+    Check /etc/passwd, /etc/group, /etc/shadow, /etc/sudoers, and /var/www
+The permissions should be "-rw-r----- root: shadow"
+Use "chmod -R 640 [path]" to modify the permissions
+
+-Check /etc/rc.local to see if it contains anything other than "exit 0"
+Use "ps -aux" to list running services, check if lkl, uberkey, THC-vlogger, PyKeylogger, or logkeys are running
+Install rkhunter then update the properties with "rkhunter --propupd" then run with "rkhunter --checkall"
+
+
+authorized openssh users public keys (forensics)
+-sudo find / -type f -name authorized_keys 2>/dev/null
+
+disable automatic login in /etc/gdm3/custom.conf
+
+~~manual stuff
+-screen timeout policy (5 mins or less)
+-turn on automatic screen lock (5 mins or less)
+-make sure required services are up and secured
++configure firewall accordingly to service
+++ufw allow 'Apache Secure' to allow the apache secure profile of apache in the ufw
+++ufw allow 'OpenSSH'
+-check sudoers for any user privilege specification
+
+-/etc/sysctl.conf disable accept_source_route for default and all and everything
++net.ipv4.tcp_rfc1337
++ignore send redirects
++turn on martian packet logging
++conf.default.rp_filter=1 and all.rp_filter=1
++dont accept redirects
++net.ipv6.conf.default.disable_ipv6 = 1 if doesn't need ipv6
++net.ipv6.conf.all.disable_ipv6 = 1
+
+/etc/security/pwquality.conf turn dictcheck = 1
+
+/etc/login.defs
+-ENCRYPT_METHOD SHA512
+-LOGIN_RETRIES 1-5 #(between 1 and 5)
+
+/etc/grub.d/40_custom
+-#check for superuser backdoor
+-set check_signatures=enforce
+-export check_signatures
+
+/etc/hosts
+-remove insecure stuff like google.com and duckduckgo.com
+
+/etc/apt/apt.conf.d/
+-look for malicious configuration files
++same for /etc/apt/sources.list.d/ (mozillateam is probably fine)
+
+Apache security:
+-ufw allow 'Apache Secure'
+-/etc/apache2/conf-enabled/security.conf
++ServerTokens Prod #(NOT FULL)
++ServerSignatures Off
+
+
+/etc/vsftpd.conf
+-anonymous_enable = NO
+/etc/vsftpd.chroot_list
+-check for chrooted users not meant to be chrooted
+
+disable all unnecessary services (CUPS, Avahi included)
