@@ -1,5 +1,5 @@
 #!/bin/bash
-#
+
 # Only look in locations where sensitive files exist
 CRITICAL_DIRS=(
     "/home"
