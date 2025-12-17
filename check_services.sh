@@ -6,7 +6,6 @@ if [[ ! -f "$WHITELIST" ]]; then
     echo "[-] Whitelist file not found: $WHITELIST"
     exit 1
 fi
-
 # Normalize whitelist: remove CR (\r) characters and trim spaces
 mapfile -t WHITELIST_ARRAY < <(sed 's/\r$//' "$WHITELIST" | sed 's/[[:space:]]*$//')
 
