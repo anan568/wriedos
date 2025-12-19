@@ -1,0 +1,3 @@
+-the apache service script sucks
+-clean up & merge checklists
+-fix file organization (make folders and allat)
