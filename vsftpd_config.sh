@@ -3,7 +3,7 @@
 #exits on error/failure
 set -euo pipefail
 
-if [[ $EIUD -ne 0 ]]; then
+if [[ $EUID -ne 0 ]]; then
     echo "===== ensure script is ran as root"
     exit 1 
 fi
