@@ -63,9 +63,10 @@ set_config "pasv_max_port" "40100"
 # Banner
 set_config "ftpd_banner" "Authorized access only."
 
+systemctl restart vsftpd
+
 echo "==== validating vsftpd configurations"
-if vsftpd "$VSFTPD_CONFIG" &>/dev/null; then
-    systemctl restart vsftpd
+if systemctl is-active --quiet vsftpd; then
     echo "===== vsftpd configuration applied successfully"
 else
     echo "===== Critical: vsftpd congfiguration errors detected. reverting to backups"
