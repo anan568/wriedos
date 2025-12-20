@@ -10,18 +10,30 @@ fi
 
 VSFTPD_CONFIG="/etc/vsftpd.conf"
 BACKUP="/etc/vsftpd.conf.bak"
+CERT_DIR=/etc/ssl/private
+CERT_FILE="$CERT_DIR/vsftpd.pem"
 
 echo "==== updating and installing just incase"
 apt update
-apt install vsftpd -y
+apt install vsftpd openssl -y
 
 # making sure ftp is up and running 
 systemctl enable vsftpd
-systemctl start vsftpd
 
 # backing up vsftp configs
 cp -p "$VSFTPD_CONFIG" "$BACKUP"
 echo "==== backup created at $BACKUP"
+
+if [[ ! -f "$CERT_FILE" ]]; then
+    echo "====== Generating TLS certificate"
+    openssl req -x509 -nodes -days 365 \
+        -newkey rsa:4096 \
+        -keyout "$CERT_FILE" \
+        -out "$CERT_FILE" \
+        -subj "/CN=FTP Server"
+
+    chmod 600 "$CERT_FILE"
+fi
 
 # function to apply vsftpd configs
 set_config() {
@@ -50,7 +62,7 @@ set_config "local_umask" "022"
 # Disable risky features
 set_config "dirmessage_enable" "NO"
 set_config "xferlog_enable" "YES"
-set_config "connect_from_port_20" "NO"
+set_config "port_enable" "NO"
 # Logging
 set_config "log_ftp_protocol" "YES"
 set_config "vsftpd_log_file" "/var/log/vsftpd.log"
@@ -63,13 +75,32 @@ set_config "pasv_max_port" "40100"
 # Banner
 set_config "ftpd_banner" "Authorized access only."
 
-systemctl restart vsftpd
+# ===== TLS HARDENING =====
+set_config "ssl_enable" "YES"
+set_config "rsa_cert_file" "$CERT_FILE"
+set_config "rsa_private_key_file" "$CERT_FILE"
+# Force encryption
+set_config "force_local_logins_ssl" "YES"
+set_config "force_local_data_ssl" "YES"
+# Disable weak SSL
+set_config "ssl_sslv2" "NO"
+set_config "ssl_sslv3" "NO"
+set_config "ssl_tlsv1" "NO"
+set_config "ssl_tlsv1_1" "NO"
+set_config "ssl_tlsv1_2" "YES"
+# Strong ciphers
+set_config "ssl_ciphers" "HIGH"
+# Hide users
+set_config "userlist_enable" "YES"
+set_config "userlist_deny" "NO"
+set_config "require_ssl_reuse" "NO"
 
-echo "==== validating vsftpd configurations"
-if systemctl is-active --quiet vsftpd; then
-    echo "===== vsftpd configuration applied successfully"
+echo "==== validating vsftpd configuration"
+if vsftpd "$VSFTPD_CONFIG" &>/dev/null; then
+    systemctl restart vsftpd
+    echo "===== vsftpd started securely"
 else
-    echo "===== Critical: vsftpd congfiguration errors detected. reverting to backups"
+    echo "===== CRITICAL: config error, reverting"
     cp -p "$BACKUP" "$VSFTPD_CONFIG"
     systemctl restart vsftpd
     exit 1
@@ -77,7 +108,6 @@ fi
 
 echo "===== configuring UFW firewall settings for ftp"
 # main ftp control ports
-ufw allow 20/tcp
 ufw allow 21/tcp
 # passive ftp port
 ufw allow 40000:40100/tcp
