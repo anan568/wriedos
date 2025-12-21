@@ -202,6 +202,20 @@ sudo sed -i 's/nullok//g' /etc/pam.d/common-auth
 
 echo
 
+echo "=== Enforcing password complexity ==="
+
+sudo apt install -y libpam-pwquality
+
+sudo sed -i 's/^#\? minlen.*/minlen = 12/' /etc/security/pwquality.conf
+sudo sed -i 's/^#\? dcredit.*/dcredit = -1/' /etc/security/pwquality.conf
+sudo sed -i 's/^#\? ucredit.*/ucredit = -1/' /etc/security/pwquality.conf
+sudo sed -i 's/^#\? lcredit.*/lcredit = -1/' /etc/security/pwquality.conf
+sudo sed -i 's/^#\? ocredit.*/ocredit = -1/' /etc/security/pwquality.conf
+set_pwq retry    3
+set_pwq difok    4
+
+echo
+
 # 13) AUTOMATIC DAILY UPDATES
 
 echo "=== Configuring automatic daily updates ==="
