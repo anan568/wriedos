@@ -41,6 +41,10 @@ SYSTEM_USERS=($(awk -F: '$3 >= 1000 {print $1}' /etc/passwd))
 EXPECTED_USERS=("${AUTHORIZED_USERS[@]}" "${AUTHORIZED_ADMINS[@]}")
 
 echo
+echo "=== Checking for UID 0 backdoor accounts ==="
+awk -F: '$3 == 0 {print $1}' /etc/passwd
+
+echo
 echo "Detected system users: ${SYSTEM_USERS[*]}"
 echo
 
@@ -225,6 +229,11 @@ sudo dpkg-reconfigure --priority=low unattended-upgrades
 
 echo
 
+echo "=== Appplying system updates ==="
+sudo apt update && sudo apt full-upgrade -y && sudo apt dist-upgrade -y
+
+echo
+
 echo "=== SYSTEM HARDENING COMPLETE ==="
 
 # 14) KERNEL HARDENING
@@ -352,5 +361,6 @@ fi
 
 #disable guest login
 sudo sed -i 's/^#\?allow-guest.*/allow-guest=false/' /etc/lightdm/lightdm.conf 2>/dev/null
+sudo sed -i 's/^#\?AutomaticLogin.*/AutomaticLogin=false/' /etc/lightdm/lightdm.conf 2>/dev/null
 
 echo "[+] Scan complete."
