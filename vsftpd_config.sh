@@ -1,4 +1,5 @@
 #!/bin/bash
+### MAKE sure to stop the service before running the script because this will configure then validate it and ensure it starts
 
 #exits on error/failure
 set -euo pipefail
